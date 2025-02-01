@@ -20,6 +20,7 @@ const groupList = ref<Group[]>([])
 let groupsLocalStorage = JSON.parse(localStorage.getItem('groupList') ?? '{}')
 if (Object.keys(groupsLocalStorage).length !== 0) {
   groupList.value = groupsLocalStorage
+  document.title = 'To-Do List - ' + groupList.value[0].title
 }
 
 const createGroup = () => {
@@ -30,6 +31,7 @@ const createGroup = () => {
   }
   groupList.value.push(newGroup)
   localStorage.setItem('groupList', JSON.stringify(groupList.value))
+  setActiveGroup(newGroup.id)
 }
 
 const emit = defineEmits<{
@@ -37,6 +39,7 @@ const emit = defineEmits<{
 }>()
 
 const setActiveGroup = (id: number) => {
+  document.title = 'To-Do List - ' + groupList.value[id].title
   emit('select-group', id)
 }
 </script>

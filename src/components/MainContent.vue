@@ -51,13 +51,13 @@ const addTask = () => {
     isEditing: false,
     dragging: false,
   }
-  groupList.value[props.activeGroupId!].taskList.push(newTask)
+  groupList.value[id!].taskList.unshift(newTask)
   localStorage.setItem('groupList', JSON.stringify(groupList.value))
 }
 
 //Кнопка, удаляющая задачу
-const deleteTask = (id: number) => {
-  taskList.value = taskList.value.filter((task) => task.id !== id)
+const deleteTask = () => {
+  groupList.value[id!].taskList = taskList.value.filter((task) => task.id !== id)
 }
 
 //Перетаскивание задач
@@ -67,12 +67,12 @@ const cloneElement = ref<HTMLElement | null>(null)
 const cloneContainer = ref<HTMLDivElement | null>(null)
 
 const onMouseDown = (index: number, event: MouseEvent) => {
-  if (taskList.value[index].isEditing) {
+  if (groupList.value[id!].taskList[index].isEditing) {
     draggingTaskIndex.value = index
     const currentTarget = event.currentTarget as HTMLElement
     offsetY.value = event.clientY - currentTarget.getBoundingClientRect().top
 
-    taskList.value[index].dragging = true
+    groupList.value[id!].taskList[index].dragging = true
     document.body.style.cursor = 'grabbing'
 
     document.addEventListener('mousemove', onMouseMove)
@@ -146,7 +146,7 @@ const onMouseUp = (event: MouseEvent) => {
       cloneContainer.value = null
     }
 
-    taskList.value.forEach((task) => {
+    groupList.value[id!].taskList.forEach((task) => {
       task.dragging = false
     })
     document.body.style.cursor = ''
@@ -154,6 +154,11 @@ const onMouseUp = (event: MouseEvent) => {
     document.removeEventListener('mousemove', onMouseMove)
     document.removeEventListener('mouseup', onMouseUp)
   }
+}
+
+//Перенос текста
+const formattedText = (item: Task) => {
+  return item.title.replace(/\n/g, '<br>')
 }
 </script>
 <template>
@@ -206,9 +211,9 @@ const onMouseUp = (event: MouseEvent) => {
             :class="{ 'line-through': item.completionStatus }"
             class="text-base line-height-3 text-justify"
             v-if="!item.isEditing"
+            v-html="formattedText(item)"
           >
-            {{ item.title }}</span
-          >
+          </span>
           <Textarea
             rows="1"
             cols="20"
@@ -216,11 +221,11 @@ const onMouseUp = (event: MouseEvent) => {
             v-if="item.isEditing"
             v-model="item.title"
             class="textarea text-base line-height-3 border-none w-full bg-white-alpha-30 border-round-sm my-2"
-            @keyup.enter.prevent="item.isEditing = false"
+            @keydown.enter.exact.prevent="item.isEditing = false"
           />
           <div class="edit-buttons ml-auto flex gap-2 align-content-center">
             <Button
-              :icon="item.isEditing ? 'pi pi-times' : 'pi pi-pencil'"
+              :icon="item.isEditing ? 'pi pi-check' : 'pi pi-pencil'"
               aria-label="Edit"
               @click.stop="item.isEditing = !item.isEditing"
               :pt="{
@@ -235,7 +240,7 @@ const onMouseUp = (event: MouseEvent) => {
             <Button
               icon="pi pi-trash"
               aria-label="Delete"
-              @click="deleteTask(item.id)"
+              @click="deleteTask()"
               :pt="{
                 root: {
                   class:
