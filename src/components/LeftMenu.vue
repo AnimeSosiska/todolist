@@ -13,11 +13,12 @@ interface Task {
   title: string
   completionStatus: boolean
   isEditing: boolean
+  isSelecting: boolean
   dragging: boolean
 }
 
 const groupList = ref<Group[]>([])
-let groupsLocalStorage = JSON.parse(localStorage.getItem('groupList') ?? '{}')
+let groupsLocalStorage = JSON.parse(localStorage.getItem('groupList') ?? '[]')
 if (Object.keys(groupsLocalStorage).length !== 0) {
   groupList.value = groupsLocalStorage
   document.title = 'To-Do List - ' + groupList.value[0].title
@@ -29,6 +30,7 @@ const createGroup = () => {
     title: 'Новый список' + groupList.value.length,
     taskList: [],
   }
+  groupList.value = JSON.parse(localStorage.getItem('groupList') ?? '[]')
   groupList.value.push(newGroup)
   localStorage.setItem('groupList', JSON.stringify(groupList.value))
   setActiveGroup(newGroup.id)
@@ -39,7 +41,7 @@ const emit = defineEmits<{
 }>()
 
 const setActiveGroup = (id: number) => {
-  document.title = 'To-Do List - ' + groupList.value[id].title
+  document.title = groupList.value[id].title + ' - To-Do List'
   emit('select-group', id)
 }
 </script>

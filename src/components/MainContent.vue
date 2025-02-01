@@ -16,6 +16,7 @@ interface Task {
   title: string
   completionStatus: boolean
   isEditing: boolean
+  isSelecting: boolean
   dragging: boolean
 }
 const groupList = ref<Group[]>([])
@@ -45,10 +46,11 @@ const activeGroupTitle = computed(() => {
 //Работа кнопки, создающая задачи
 const addTask = () => {
   const newTask: Task = {
-    id: taskList.value.length,
+    id: groupList.value[id!].taskList.length,
     title: 'Новая задача',
     completionStatus: false,
     isEditing: false,
+    isSelecting: false,
     dragging: false,
   }
   groupList.value[id!].taskList.unshift(newTask)
@@ -56,8 +58,8 @@ const addTask = () => {
 }
 
 //Кнопка, удаляющая задачу
-const deleteTask = () => {
-  groupList.value[id!].taskList = taskList.value.filter((task) => task.id !== id)
+const deleteTask = (itemId: number) => {
+  groupList.value[id!].taskList = groupList.value[id!].taskList.filter((task) => task.id !== itemId)
 }
 
 //Перетаскивание задач
@@ -67,7 +69,10 @@ const cloneElement = ref<HTMLElement | null>(null)
 const cloneContainer = ref<HTMLDivElement | null>(null)
 
 const onMouseDown = (index: number, event: MouseEvent) => {
-  if (groupList.value[id!].taskList[index].isEditing) {
+  if (
+    groupList.value[id!].taskList[index].isEditing &&
+    !groupList.value[id!].taskList[index].isSelecting
+  ) {
     draggingTaskIndex.value = index
     const currentTarget = event.currentTarget as HTMLElement
     offsetY.value = event.clientY - currentTarget.getBoundingClientRect().top
@@ -96,7 +101,6 @@ const onMouseMove = (event: MouseEvent) => {
       cloneContainer.value.style.height = '100vh'
       cloneElement.value.classList.remove('task')
       cloneElement.value.classList.add('task-copy')
-      // document.body.appendChild(cloneElement.value)
       cloneContainer.value.appendChild(cloneElement.value)
     }
 
@@ -115,7 +119,6 @@ const onMouseMove = (event: MouseEvent) => {
         const rect = taskElement.getBoundingClientRect()
         const isAbove = event.clientY < rect.top + rect.height / 2 && event.clientY > rect.top
         const isBelow = event.clientY > rect.top + rect.height / 2 && event.clientY < rect.bottom
-
         if (isAbove && i < draggingTaskIndex.value!) {
           newIndex = i
         } else if (isBelow && i > draggingTaskIndex.value!) {
@@ -125,8 +128,8 @@ const onMouseMove = (event: MouseEvent) => {
     })
 
     if (newIndex !== draggingTaskIndex.value) {
-      const movedTask = taskList.value.splice(draggingTaskIndex.value!, 1)[0]
-      taskList.value.splice(newIndex, 0, movedTask)
+      const movedTask = groupList.value[id!].taskList.splice(draggingTaskIndex.value!, 1)[0]
+      groupList.value[id!].taskList.splice(newIndex, 0, movedTask)
       draggingTaskIndex.value = newIndex
     }
   }
@@ -170,6 +173,7 @@ const formattedText = (item: Task) => {
     </div>
     <div class="group-content flex flex-column gap-4 w-full mt-4">
       <Button
+        unstyled
         @click="addTask"
         v-if="activeGroupTitle"
         label="Новая задача"
@@ -209,7 +213,7 @@ const formattedText = (item: Task) => {
           ></i>
           <span
             :class="{ 'line-through': item.completionStatus }"
-            class="text-base line-height-3 text-justify"
+            class="text-base line-height-3 text-justify my-2"
             v-if="!item.isEditing"
             v-html="formattedText(item)"
           >
@@ -220,7 +224,11 @@ const formattedText = (item: Task) => {
             autoResize
             v-if="item.isEditing"
             v-model="item.title"
+            maxlength="250"
             class="textarea text-base line-height-3 border-none w-full bg-white-alpha-30 border-round-sm my-2"
+            @mousedown.stop="item.isSelecting = true"
+            @mouseup.stop="item.isSelecting = false"
+            @mouseleave.stop="item.isSelecting = false"
             @keydown.enter.exact.prevent="item.isEditing = false"
           />
           <div class="edit-buttons ml-auto flex gap-2 align-content-center">
@@ -240,7 +248,7 @@ const formattedText = (item: Task) => {
             <Button
               icon="pi pi-trash"
               aria-label="Delete"
-              @click="deleteTask()"
+              @click="deleteTask(item.id)"
               :pt="{
                 root: {
                   class:
@@ -292,5 +300,9 @@ const formattedText = (item: Task) => {
   left: 0;
   width: 100vw;
   height: 100vh;
+}
+.tooltip {
+  color: #2c3e50;
+  font-family: 'Nunito', serif;
 }
 </style>

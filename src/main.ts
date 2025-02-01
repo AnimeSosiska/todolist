@@ -15,7 +15,7 @@ import router from './router'
 const app = createApp(App)
 
 app.use(createPinia())
-app.use(PrimeVue, { unstyled: true })
+app.use(PrimeVue)
 app.component('InputText', InputText)
 app.component('Button', Button)
 app.use(router)
