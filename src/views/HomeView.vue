@@ -5,7 +5,7 @@ import { ref } from 'vue'
 
 const activeGroupId = ref<number | null>(null)
 
-function setActiveGroup(id: number) {
+const setActiveGroup = (id: number) => {
   activeGroupId.value = id
 }
 </script>

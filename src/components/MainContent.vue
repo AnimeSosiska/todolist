@@ -62,6 +62,21 @@ const deleteTask = (itemId: number) => {
   groupList.value[id!].taskList = groupList.value[id!].taskList.filter((task) => task.id !== itemId)
 }
 
+//Кнопка редактирования
+
+const editTask = (taskId: number) => {
+  let item = groupList.value[id!].taskList.find((task) => task.id === taskId)
+
+  if (item) {
+    if (!item.isEditing) {
+      item.isEditing = true
+    } else if (item.isEditing) {
+      item.isEditing = false
+      localStorage.setItem('groupList', JSON.stringify(groupList.value))
+    }
+  }
+}
+
 //Перетаскивание задач
 const draggingTaskIndex = ref<number | null>(null)
 const offsetY = ref(0)
@@ -103,7 +118,6 @@ const onMouseMove = (event: MouseEvent) => {
       cloneElement.value.classList.add('task-copy')
       cloneContainer.value.appendChild(cloneElement.value)
     }
-
     currentElement.style.visibility = 'hidden'
 
     const rect = currentElement.getBoundingClientRect()
@@ -163,13 +177,66 @@ const onMouseUp = (event: MouseEvent) => {
 const formattedText = (item: Task) => {
   return item.title.replace(/\n/g, '<br>')
 }
+
+//Выборка иконки задач
+const taskIcon = (item: Task): string => {
+  let icon = ''
+  if (!item.isEditing) {
+    if (item.completionStatus) {
+      icon = 'pi pi-check-circle'
+    } else {
+      icon = 'pi pi-circle'
+    }
+  } else {
+    icon = 'pi pi-ellipsis-v'
+  }
+  return icon
+}
 </script>
 <template>
   <div class="main-content w-full">
-    <div class="title-container flex w-full py-3">
+    <div class="title-container flex justify-content-between w-full py-3">
       <h1 class="text-4xl font-medium line-height-4 ml-8">
         {{ activeGroupTitle || 'Вы ещё не создали список!' }}
       </h1>
+      <div class="buttons flex mr-8 gap-4">
+        <Button
+          v-if="id !== null"
+          unstyled
+          label="Редактировать группу"
+          icon="pi pi-pen-to-square"
+          :pt="{
+            root: {
+              class:
+                'edit-button bg-orange-100 hover:bg-orange-200 px-4 border-round border-none flex gap-2 align-items-center transition-ease-out transition-duration-100 cursor-pointer',
+            },
+            label: { class: 'text-lg line-height-3' },
+            icon: { class: 'text-xl' },
+          }"
+        ></Button>
+        <Button
+          unstyled
+          label="Посмотреть котика"
+          :pt="{
+            root: {
+              class:
+                'edit-button bg-yellow-100 hover:bg-yellow-200 px-4 border-round border-none flex gap-2 align-items-center transition-ease-out transition-duration-100 cursor-pointer',
+            },
+            label: { class: 'text-lg line-height-3' },
+          }"
+          ><template #icon
+            ><svg
+              xmlns="http://www.w3.org/2000/svg"
+              height="24px"
+              viewBox="0 -960 960 960"
+              width="24px"
+              fill="#2c3e50"
+            >
+              <path
+                d="M180-475q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29Zm180-160q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29Zm240 0q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29Zm180 160q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29ZM266-75q-45 0-75.5-34.5T160-191q0-52 35.5-91t70.5-77q29-31 50-67.5t50-68.5q22-26 51-43t63-17q34 0 63 16t51 42q28 32 49.5 69t50.5 69q35 38 70.5 77t35.5 91q0 47-30.5 81.5T694-75q-54 0-107-9t-107-9q-54 0-107 9t-107 9Z"
+              /></svg></template
+        ></Button>
+      </div>
     </div>
     <div class="group-content flex flex-column gap-4 w-full mt-4">
       <Button
@@ -192,15 +259,13 @@ const formattedText = (item: Task) => {
           :key="item.id"
           v-for="(item, index) in groupList[id].taskList"
           @click="item.isEditing ? '' : (item.completionStatus = !item.completionStatus)"
-          @mousedown="onMouseDown(index, $event)"
-          :icon="item.completionStatus ? 'pi pi-check-circle' : 'pi pi-circle'"
           :pt="{
             root: {
               class: [
-                'button task hover:bg-bluegray-100 mx-8 px-4 border-round border-none flex gap-2 align-items-center transition-ease-out transition-duration-100',
+                'button hover:bg-bluegray-100 active:bg-bluegray-100 task mx-8 px-4 border-round border-none flex gap-2 align-items-center transition-ease-out transition-duration-100',
                 {
                   'cursor-pointer': !item.isEditing,
-                  'cursor-move': item.isEditing,
+
                   'bg-bluegray-100': item.dragging,
                 },
               ],
@@ -208,8 +273,9 @@ const formattedText = (item: Task) => {
           }"
         >
           <i
-            :class="item.completionStatus ? 'pi pi-check-circle' : 'pi pi-circle'"
             class="text-xl"
+            :class="[taskIcon(item), { 'cursor-move': item.isEditing }]"
+            @mousedown="onMouseDown(index, $event)"
           ></i>
           <span
             :class="{ 'line-through': item.completionStatus }"
@@ -229,13 +295,13 @@ const formattedText = (item: Task) => {
             @mousedown.stop="item.isSelecting = true"
             @mouseup.stop="item.isSelecting = false"
             @mouseleave.stop="item.isSelecting = false"
-            @keydown.enter.exact.prevent="item.isEditing = false"
+            @keydown.enter.exact.prevent="editTask(item.id)"
           />
           <div class="edit-buttons ml-auto flex gap-2 align-content-center">
             <Button
               :icon="item.isEditing ? 'pi pi-check' : 'pi pi-pencil'"
               aria-label="Edit"
-              @click.stop="item.isEditing = !item.isEditing"
+              @click.stop="editTask(item.id)"
               :pt="{
                 root: {
                   class:
@@ -252,7 +318,7 @@ const formattedText = (item: Task) => {
               :pt="{
                 root: {
                   class:
-                    'border-round-xl border-none h-max w-max bg-white-alpha-60 hover:bg-white transition-ease-out transition-duration-100 cursor-pointer flex align-items-center p-2',
+                    'border-round-xl border-none h-max w-max bg-white-alpha-60 hover:bg-red-200 transition-ease-out transition-duration-100 cursor-pointer flex align-items-center p-2',
                 },
                 icon: { class: 'text-xl' },
                 label: { class: 'max-w-0' },
@@ -274,8 +340,10 @@ const formattedText = (item: Task) => {
   min-height: 50px;
   font-family: 'Nunito', serif;
 }
-.button:hover {
-  background: rgba(224, 224, 224, 1);
+.edit-button {
+  color: #2c3e50;
+  min-height: 50px;
+  font-family: 'Nunito', serif;
 }
 .textarea {
   background: none;
