@@ -1,13 +1,13 @@
 <script lang="ts" setup>
 import Logo from './icons/Logo.vue'
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 
 interface Group {
   id: number
   title: string
   taskList: Task[]
+  isEditing: boolean
 }
-
 interface Task {
   id: number
   title: string
@@ -17,21 +17,25 @@ interface Task {
   dragging: boolean
 }
 
-const groupList = ref<Group[]>([])
-let groupsLocalStorage = JSON.parse(localStorage.getItem('groupList') ?? '[]')
-if (Object.keys(groupsLocalStorage).length !== 0) {
-  groupList.value = groupsLocalStorage
-  document.title = 'To-Do List - ' + groupList.value[0].title
-}
+const props = defineProps<{
+  groupList: Group[] | []
+}>()
+
+const emit = defineEmits<{
+  (e: 'select-group', index: number): void
+  (e: 'update-group', updatedGroupList: Group[]): void
+}>()
+
+const updatedGroupList = ref<Group[]>(props.groupList)
 
 const createGroup = () => {
-  groupList.value = JSON.parse(localStorage.getItem('groupList') ?? '[]')
+  updatedGroupList.value = [...props.groupList]
 
   const generateUniqueTitle = (baseTitle: string): string => {
     let count = 1
     let newTitle = baseTitle
 
-    while (groupList.value.some((group) => group.title === newTitle)) {
+    while (updatedGroupList.value.some((group) => group.title === newTitle)) {
       count++
       newTitle = `${baseTitle} #${count}`
     }
@@ -41,133 +45,50 @@ const createGroup = () => {
   const newGroupTitle = generateUniqueTitle('Новый список')
 
   const newGroup: Group = {
-    id: groupList.value.length,
+    id: updatedGroupList.value.length,
     title: newGroupTitle,
     taskList: [],
+    isEditing: false,
   }
-  groupList.value.push(newGroup)
-  localStorage.setItem('groupList', JSON.stringify(groupList.value))
+  updatedGroupList.value.push(newGroup)
+  emit('update-group', updatedGroupList.value)
   setActiveGroup(newGroup.id)
 }
-
-const emit = defineEmits<{
-  (e: 'select-group', id: number): void
-}>()
-
 const setActiveGroup = (id: number) => {
-  document.title = groupList.value[id].title + ' - To-Do List'
+  document.title = updatedGroupList.value[id].title + ' - To-Do List'
   emit('select-group', id)
 }
 
-//Двигаем группы
-// const draggingTaskIndex = ref<number | null>(null)
-// const offsetY = ref(0)
-// const cloneElement = ref<HTMLElement | null>(null)
-// const cloneContainer = ref<HTMLDivElement | null>(null)
+const ripple = (e: MouseEvent) => {
+  const target = e.target as HTMLDivElement
+  const rect = target.getBoundingClientRect()
+  let x = e.clientX - rect.left
+  let y = e.clientY - rect.top
 
-// const onMouseDown = (index: number, event: MouseEvent) => {
-//   if (
-//     groupList.value[id!].taskList[index].isEditing &&
-//     !groupList.value[id!].taskList[index].isSelecting
-//   ) {
-//     draggingTaskIndex.value = index
-//     const currentTarget = event.currentTarget as HTMLElement
-//     offsetY.value = event.clientY - currentTarget.getBoundingClientRect().top
+  let ripples = document.createElement('span')
+  ripples.classList.add('ripple')
+  ripples.style.left = x + 'px'
+  ripples.style.top = y + 'px'
+  target.appendChild(ripples)
 
-//     groupList.value[id!].taskList[index].dragging = true
-//     document.body.style.cursor = 'grabbing'
-
-//     document.addEventListener('mousemove', onMouseMove)
-//     document.addEventListener('mouseup', onMouseUp)
-//   }
-// }
-
-// const onMouseMove = (event: MouseEvent) => {
-//   if (draggingTaskIndex.value !== null) {
-//     const taskElements = document.querySelectorAll('.task')
-//     const currentElement = taskElements[draggingTaskIndex.value] as HTMLElement
-
-//     if (!cloneElement.value) {
-//       cloneElement.value = currentElement.cloneNode(true) as HTMLElement
-//       cloneContainer.value = document.createElement('div')
-//       document.body.appendChild(cloneContainer.value)
-//       cloneContainer.value.style.position = 'absolute'
-//       cloneContainer.value.style.top = '0'
-//       cloneContainer.value.style.left = '0'
-//       cloneContainer.value.style.width = '100vw'
-//       cloneContainer.value.style.height = '100vh'
-//       cloneElement.value.classList.remove('task')
-//       cloneElement.value.classList.add('task-copy')
-//       cloneContainer.value.appendChild(cloneElement.value)
-//     }
-//     currentElement.style.visibility = 'hidden'
-
-//     const rect = currentElement.getBoundingClientRect()
-//     const originalX = rect.left
-
-//     cloneElement.value.style.top = `${event.clientY - offsetY.value / 2}px`
-//     cloneElement.value.style.left = `${originalX}px`
-
-//     let newIndex = draggingTaskIndex.value
-
-//     taskElements.forEach((taskElement, i) => {
-//       if (i !== draggingTaskIndex.value) {
-//         const rect = taskElement.getBoundingClientRect()
-//         const isAbove = event.clientY < rect.top + rect.height / 2 && event.clientY > rect.top
-//         const isBelow = event.clientY > rect.top + rect.height / 2 && event.clientY < rect.bottom
-//         if (isAbove && i < draggingTaskIndex.value!) {
-//           newIndex = i
-//         } else if (isBelow && i > draggingTaskIndex.value!) {
-//           newIndex = i
-//         }
-//       }
-//     })
-
-//     if (newIndex !== draggingTaskIndex.value) {
-//       const movedTask = groupList.value[id!].taskList.splice(draggingTaskIndex.value!, 1)[0]
-//       groupList.value[id!].taskList.splice(newIndex, 0, movedTask)
-//       draggingTaskIndex.value = newIndex
-//     }
-//   }
-// }
-
-// const onMouseUp = (event: MouseEvent) => {
-//   if (draggingTaskIndex.value !== null) {
-//     const taskElements = document.querySelectorAll('.task')
-//     const currentElement = taskElements[draggingTaskIndex.value] as HTMLElement
-
-//     currentElement.style.visibility = ''
-
-//     if (cloneContainer.value && cloneElement.value) {
-//       cloneContainer.value.removeChild(cloneElement.value)
-//       document.body.removeChild(cloneContainer.value)
-//       cloneElement.value = null
-//       cloneContainer.value = null
-//     }
-
-//     groupList.value[id!].taskList.forEach((task) => {
-//       task.dragging = false
-//     })
-//     document.body.style.cursor = ''
-//     draggingTaskIndex.value = null
-//     document.removeEventListener('mousemove', onMouseMove)
-//     document.removeEventListener('mouseup', onMouseUp)
-//   }
-// }
+  setTimeout(() => {
+    ripples.remove()
+  }, 1000)
+}
 </script>
 <template>
-  <div class="menu border-round-left-2xl border-none max-w-14rem w-full h-full">
-    <div class="logo-container">
-      <Logo id="logo" />
+  <div class="menu border-round-left-2xl border-none max-w-14rem w-full h-full flex flex-column">
+    <div class="logo-container relative overflow-hidden" @click.stop="(event) => ripple(event)">
+      <Logo id="logo" class="h-full" />
     </div>
-    <div class="flex-column flex flex-column gap-4 mt-4">
+    <div class="groups-container flex flex-column gap-4 mt-4 overflow-y-auto pb-2 pt-1 w-full">
       <Button
         label="Новый список"
         icon="pi pi-folder-plus"
         :pt="{
           root: {
             class:
-              'shadow-2 hover:bg-bluegray-100 transition-duration-100 mx-3 px-4 border-round border-none flex gap-2 align-items-center transition-ease-out cursor-pointer',
+              'shadow-2 hover:bg-bluegray-100 transition-duration-100 ml-3 mr-2 px4 border-round border-none flex gap-2 align-items-center transition-ease-out cursor-pointer',
           },
           label: { class: 'text-base line-height-3' },
           icon: { class: 'text-xl' },
@@ -181,7 +102,7 @@ const setActiveGroup = (id: number) => {
         :pt="{
           root: {
             class:
-              'shadow-2 hover:bg-bluegray-100 transition-duration-100 mx-3 px-4 border-round border-none flex gap-2 align-items-center transition-ease-out cursor-pointer',
+              'shadow-2 hover:bg-bluegray-100 transition-duration-100 ml-3 mr-2 px4 border-round border-none flex gap-2 align-items-center transition-ease-out cursor-pointer',
           },
           label: {
             class:
@@ -189,7 +110,7 @@ const setActiveGroup = (id: number) => {
           },
           icon: { class: 'text-xl' },
         }"
-        @click="setActiveGroup(item.id)"
+        @click="setActiveGroup(index)"
       />
     </div>
   </div>
@@ -201,18 +122,58 @@ const setActiveGroup = (id: number) => {
   box-shadow: 4px 0 4px 0 rgba(0, 0, 0, 10%);
 }
 .logo-container {
-  padding: 18px 0 18px 0;
   display: flex;
-  border-bottom: 1px solid rgba(0, 0, 0, 25%);
 }
 #logo {
+  padding: 18px 0 18px 0;
   margin: auto;
+  pointer-events: none;
+  z-index: 50;
 }
+.groups-container {
+  scrollbar-gutter: stable;
+}
+.groups-container::-webkit-scrollbar {
+  width: 0.5rem;
+}
+.groups-container::-webkit-scrollbar-thumb {
+  background-color: rgba(44, 62, 80, 0.5);
+  border-radius: 5rem;
+}
+.groups-container::-webkit-scrollbar-track-piece:start {
+  background: transparent;
+}
+.groups-container::-webkit-scrollbar-track-piece:end {
+  background: transparent;
+}
+
 Button {
   color: #2c3e50;
   border-color: #2c3e50;
   background: #e0e0e0;
-  height: 50px;
+  min-height: 50px;
   font-family: 'Nunito', serif;
+}
+</style>
+<style>
+.ripple {
+  background-color: #fff;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  border-radius: 50%;
+  animation: ripple-animate 1s linear infinite;
+}
+
+@keyframes ripple-animate {
+  0% {
+    width: 0;
+    height: 0;
+  }
+  100% {
+    width: 500px;
+    height: 500px;
+    opacity: 0;
+  }
 }
 </style>

@@ -1,15 +1,29 @@
 <script lang="ts" setup>
-import { computed, ref, onMounted } from 'vue'
+import { ref, watchEffect } from 'vue'
 import Textarea from 'primevue/textarea'
+import ConfirmDialog from 'primevue/confirmdialog'
+import { useConfirm } from 'primevue/useConfirm'
+import Dialog from 'primevue/dialog'
+import axios from 'axios'
+import Image from 'primevue/image'
+
+const confirm = useConfirm()
 
 const props = defineProps<{
   activeGroupId: number | null
+  groupList: Group[] | []
+}>()
+
+const emit = defineEmits<{
+  (e: 'update-group', updatedGroupList: Group[]): void
+  (e: 'delete-group', deletingGroup: Group['id']): void
 }>()
 
 interface Group {
   id: number
   title: string
   taskList: Task[]
+  isEditing: boolean
 }
 interface Task {
   id: number
@@ -19,60 +33,112 @@ interface Task {
   isSelecting: boolean
   dragging: boolean
 }
-const groupList = ref<Group[]>([])
-const taskList = ref<Task[]>([])
-let id: number | null = null
 
-const activeGroupTitle = computed(() => {
-  groupList.value = JSON.parse(localStorage.getItem('groupList') ?? '{}')
+const activeGroupTitle = ref<string | null>(null)
+const groupList = ref<Group[] | []>(props.groupList)
 
-  let group: Group | undefined
-  if (props.activeGroupId === null) {
-    if (Object.keys(groupList.value).length !== 0) {
-      group = groupList.value[0]
-      id = 0
+const isActiveGroupId = (inputText: boolean) => {
+  if (props.activeGroupId !== null) {
+    if (!inputText) {
+      return !props.groupList[props.activeGroupId].isEditing
+    } else {
+      return props.groupList[props.activeGroupId].isEditing
     }
+  } else if (props.activeGroupId == null && !inputText) {
+    return true
   } else {
-    group = groupList.value[props.activeGroupId]
-    id = props.activeGroupId
+    return false
   }
-  if (group && id) {
-    if (Object.keys(group.taskList).length !== 0) {
-      groupList.value[id].taskList = group.taskList
-    }
+}
+
+watchEffect(() => {
+  if (props.activeGroupId !== null) {
+    activeGroupTitle.value = props.groupList[props.activeGroupId].title
+  } else {
+    activeGroupTitle.value = 'Вы ещё не создали список!'
   }
-  return group ? group.title : null
 })
+if (props.activeGroupId !== null) {
+  activeGroupTitle.value = props.groupList[props.activeGroupId].title
+} else {
+  activeGroupTitle.value = 'Вы ещё не создали список!'
+}
+
 //Работа кнопки, создающая задачи
 const addTask = () => {
+  groupList.value = props.groupList
   const newTask: Task = {
-    id: groupList.value[id!].taskList.length,
+    id: groupList.value[props.activeGroupId!].taskList.length,
     title: 'Новая задача',
     completionStatus: false,
     isEditing: false,
     isSelecting: false,
     dragging: false,
   }
-  groupList.value[id!].taskList.unshift(newTask)
-  localStorage.setItem('groupList', JSON.stringify(groupList.value))
+  groupList.value[props.activeGroupId!].taskList.unshift(newTask)
+  emit('update-group', groupList.value)
 }
 
 //Кнопка, удаляющая задачу
 const deleteTask = (itemId: number) => {
-  groupList.value[id!].taskList = groupList.value[id!].taskList.filter((task) => task.id !== itemId)
+  groupList.value = props.groupList
+  groupList.value[props.activeGroupId!].taskList = groupList.value[
+    props.activeGroupId!
+  ].taskList.filter((task) => task.id !== itemId)
+  emit('update-group', groupList.value)
 }
 
 //Кнопка редактирования
 
 const editTask = (taskId: number) => {
-  let item = groupList.value[id!].taskList.find((task) => task.id === taskId)
+  groupList.value = props.groupList
+  let item = groupList.value[props.activeGroupId!].taskList.find((task) => task.id === taskId)
 
   if (item) {
     if (!item.isEditing) {
       item.isEditing = true
     } else if (item.isEditing) {
       item.isEditing = false
-      localStorage.setItem('groupList', JSON.stringify(groupList.value))
+      emit('update-group', groupList.value)
+    }
+  }
+}
+
+const editGroup = (groupId: number) => {
+  groupList.value = props.groupList
+  let group = groupList.value[groupId]
+  if (group) {
+    if (!group.isEditing) {
+      group.isEditing = true
+    } else if (group.isEditing) {
+      group.isEditing = false
+      group.title = activeGroupTitle.value!
+      emit('update-group', groupList.value)
+    }
+  }
+}
+
+const visible = ref<boolean>(false)
+const deleteGroup = (groupId: number) => {
+  groupList.value = props.groupList
+  let group = groupList.value[groupId]
+  if (group) {
+    if (group.taskList.length > 0) {
+      confirm.require({
+        message: 'Все задачи будут потеряны.',
+        header: 'Вы уверены что хотите удалить список?',
+        onShow: () => {
+          visible.value = true
+        },
+        onHide: () => {
+          visible.value = false
+        },
+        accept: () => {
+          emit('delete-group', group.id)
+        },
+      })
+    } else {
+      emit('delete-group', group.id)
     }
   }
 }
@@ -85,14 +151,14 @@ const cloneContainer = ref<HTMLDivElement | null>(null)
 
 const onMouseDown = (index: number, event: MouseEvent) => {
   if (
-    groupList.value[id!].taskList[index].isEditing &&
-    !groupList.value[id!].taskList[index].isSelecting
+    groupList.value[props.activeGroupId!].taskList[index].isEditing &&
+    !groupList.value[props.activeGroupId!].taskList[index].isSelecting
   ) {
     draggingTaskIndex.value = index
     const currentTarget = event.currentTarget as HTMLElement
     offsetY.value = event.clientY - currentTarget.getBoundingClientRect().top
 
-    groupList.value[id!].taskList[index].dragging = true
+    groupList.value[props.activeGroupId!].taskList[index].dragging = true
     document.body.style.cursor = 'grabbing'
 
     document.addEventListener('mousemove', onMouseMove)
@@ -142,8 +208,11 @@ const onMouseMove = (event: MouseEvent) => {
     })
 
     if (newIndex !== draggingTaskIndex.value) {
-      const movedTask = groupList.value[id!].taskList.splice(draggingTaskIndex.value!, 1)[0]
-      groupList.value[id!].taskList.splice(newIndex, 0, movedTask)
+      const movedTask = groupList.value[props.activeGroupId!].taskList.splice(
+        draggingTaskIndex.value!,
+        1,
+      )[0]
+      groupList.value[props.activeGroupId!].taskList.splice(newIndex, 0, movedTask)
       draggingTaskIndex.value = newIndex
     }
   }
@@ -163,19 +232,20 @@ const onMouseUp = (event: MouseEvent) => {
       cloneContainer.value = null
     }
 
-    groupList.value[id!].taskList.forEach((task) => {
+    groupList.value[props.activeGroupId!].taskList.forEach((task) => {
       task.dragging = false
     })
     document.body.style.cursor = ''
     draggingTaskIndex.value = null
     document.removeEventListener('mousemove', onMouseMove)
     document.removeEventListener('mouseup', onMouseUp)
+    emit('update-group', groupList.value)
   }
 }
 
 //Перенос текста
-const formattedText = (item: Task) => {
-  return item.title.replace(/\n/g, '<br>')
+const formattedText = (title: string) => {
+  return title.replace(/\n/g, '<br>')
 }
 
 //Выборка иконки задач
@@ -192,37 +262,95 @@ const taskIcon = (item: Task): string => {
   }
   return icon
 }
+interface Image {
+  id: string
+  url: string
+  width: number
+  height: number
+}
+const image = ref<Image | null>(null)
+const visibleModal = ref<boolean>(false)
+
+const fetchData = async () => {
+  image.value = null
+  try {
+    const response = await axios.get('https://api.thecatapi.com/v1/images/search')
+    const data = response.data
+
+    if (Array.isArray(data) && data.length > 0) {
+      image.value = data[0]
+      visibleModal.value = true
+    } else {
+      image.value = null
+    }
+  } catch (error) {
+    console.log('Ошибка котиков: ', error)
+    image.value = null
+  }
+}
 </script>
 <template>
-  <div class="main-content w-full">
-    <div class="title-container flex justify-content-between w-full py-3">
-      <h1 class="text-4xl font-medium line-height-4 ml-8">
-        {{ activeGroupTitle || 'Вы ещё не создали список!' }}
+  <div class="main-content w-full h-full flex flex-column">
+    <div class="title-container flex align-items-center justify-content-between w-full py-3">
+      <h1 class="text-4xl font-medium line-height-4 ml-8 w-6" v-if="isActiveGroupId(false)">
+        {{ activeGroupTitle }}
       </h1>
-      <div class="buttons flex mr-8 gap-4">
+      <InputText
+        v-model="activeGroupTitle"
+        v-if="isActiveGroupId(true)"
+        maxlength="20"
+        class="text-4xl font-medium line-height-4 ml-8 border-none bg-white-alpha-30 border-round-sm w-6"
+        @keydown.enter.exact.prevent="editGroup(activeGroupId!)"
+      />
+      <div class="buttons flex mr-8 gap-2" v-if="activeGroupId !== null">
         <Button
-          v-if="id !== null"
+          v-if="activeGroupId !== null"
+          @click.stop="editGroup(activeGroupId)"
           unstyled
           label="Редактировать группу"
           icon="pi pi-pen-to-square"
           :pt="{
             root: {
               class:
-                'edit-button bg-orange-100 hover:bg-orange-200 px-4 border-round border-none flex gap-2 align-items-center transition-ease-out transition-duration-100 cursor-pointer',
+                'edit-button bg-yellow-100 hover:bg-yellow-200 px-3 border-round border-none flex gap-2 align-items-center transition-ease-out transition-duration-100 cursor-pointer',
             },
             label: { class: 'text-lg line-height-3' },
             icon: { class: 'text-xl' },
           }"
         ></Button>
+        <Dialog
+          v-model:visible="visibleModal"
+          modal
+          header="Ваш котик"
+          :pt="{
+            root: {
+              class: 'px-3 py-2 border-round-md bg-white border-1 border-solid surface-border',
+            },
+            title: {
+              class: 'text-xl',
+            },
+            content: {
+              class: '',
+            },
+          }"
+          ><Image
+            :src="image?.url"
+            :width="image?.width"
+            :height="image?.height"
+            class="image"
+          ></Image
+        ></Dialog>
         <Button
           unstyled
-          label="Посмотреть котика"
+          @click="fetchData"
+          aria-label="Посмотреть котика"
+          v-if="!props.groupList[activeGroupId!].isEditing"
           :pt="{
             root: {
               class:
-                'edit-button bg-yellow-100 hover:bg-yellow-200 px-4 border-round border-none flex gap-2 align-items-center transition-ease-out transition-duration-100 cursor-pointer',
+                'cat-button bg-yellow-100 hover:bg-yellow-200 border-round border-none flex align-items-center transition-ease-out transition-duration-100 cursor-pointer w-max',
             },
-            label: { class: 'text-lg line-height-3' },
+            label: { class: 'max-w-0' },
           }"
           ><template #icon
             ><svg
@@ -236,13 +364,56 @@ const taskIcon = (item: Task): string => {
                 d="M180-475q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29Zm180-160q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29Zm240 0q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29Zm180 160q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29ZM266-75q-45 0-75.5-34.5T160-191q0-52 35.5-91t70.5-77q29-31 50-67.5t50-68.5q22-26 51-43t63-17q34 0 63 16t51 42q28 32 49.5 69t50.5 69q35 38 70.5 77t35.5 91q0 47-30.5 81.5T694-75q-54 0-107-9t-107-9q-54 0-107 9t-107 9Z"
               /></svg></template
         ></Button>
+        <ConfirmDialog id="confirm">
+          <template #container="{ message, acceptCallback, rejectCallback }">
+            <div class="flex flex-column align-items-center p-5 surface-overlay border-round-2xl">
+              <div
+                class="border-circle bg-red-600 inline-flex justify-content-center align-items-center h-6rem w-6rem -mt-8"
+              >
+                <i class="pi pi-exclamation-circle text-7xl text-white"></i>
+              </div>
+              <span class="font-bold text-2xl block mb-2 mt-4">{{ message.header }}</span>
+              <p class="mb-0">{{ message.message }}</p>
+              <div class="flex align-items-center gap-4 mt-4">
+                <Button
+                  label="Удалить"
+                  @click="acceptCallback"
+                  class="w-7rem bg-red-100 hover:bg-red-200 py-2 border-round transition-ease-out transition-duration-100"
+                ></Button>
+                <Button
+                  label="Отменить"
+                  @click="rejectCallback"
+                  class="w-7rem border-red-100 hover:border-red-200 border-solid border-2 py-2 border-round transition-ease-out transition-duration-100"
+                ></Button>
+              </div>
+            </div>
+          </template>
+        </ConfirmDialog>
+        <Button
+          unstyled
+          aria-label="Удалить группу"
+          :aria-expanded="visible"
+          :aria-controls="visible ? 'confirm' : ''"
+          icon="pi pi-trash"
+          v-if="props.groupList[activeGroupId!].isEditing"
+          @click.stop="deleteGroup(activeGroupId!)"
+          :pt="{
+            root: {
+              class:
+                'delete-button bg-red-100 hover:bg-red-200 border-round border-none flex align-items-center transition-ease-out transition-duration-100 cursor-pointer w-max',
+            },
+            label: { class: 'max-w-0' },
+            icon: { class: 'text-xl' },
+          }"
+        >
+        </Button>
       </div>
     </div>
-    <div class="group-content flex flex-column gap-4 w-full mt-4">
+    <div class="tasks-container flex flex-column gap-4 w-full mt-4 mb-2 overflow-y-auto">
       <Button
         unstyled
         @click="addTask"
-        v-if="activeGroupTitle"
+        v-if="props.activeGroupId !== null"
         label="Новая задача"
         icon="pi pi-plus-circle"
         :pt="{
@@ -254,10 +425,10 @@ const taskIcon = (item: Task): string => {
           icon: { class: 'text-xl' },
         }"
       ></Button>
-      <div class="task-list flex flex-column gap-4 w-full" v-if="id !== null">
+      <div class="task-list flex flex-column gap-4 w-full" v-if="props.activeGroupId !== null">
         <Button
           :key="item.id"
-          v-for="(item, index) in groupList[id].taskList"
+          v-for="(item, index) in props.groupList[props.activeGroupId].taskList"
           @click="item.isEditing ? '' : (item.completionStatus = !item.completionStatus)"
           :pt="{
             root: {
@@ -281,7 +452,7 @@ const taskIcon = (item: Task): string => {
             :class="{ 'line-through': item.completionStatus }"
             class="text-base line-height-3 text-justify my-2"
             v-if="!item.isEditing"
-            v-html="formattedText(item)"
+            v-html="formattedText(item.title)"
           >
           </span>
           <Textarea
@@ -345,6 +516,12 @@ const taskIcon = (item: Task): string => {
   min-height: 50px;
   font-family: 'Nunito', serif;
 }
+.cat-button {
+  padding: 0px 14px;
+}
+.delete-button {
+  padding: 0px 16px;
+}
 .textarea {
   background: none;
   font-family: 'Nunito', serif;
@@ -372,5 +549,24 @@ const taskIcon = (item: Task): string => {
 .tooltip {
   color: #2c3e50;
   font-family: 'Nunito', serif;
+}
+.tasks-container {
+  scrollbar-gutter: stable;
+}
+.tasks-container::-webkit-scrollbar {
+  width: 0.5rem;
+}
+.tasks-container::-webkit-scrollbar-thumb {
+  background-color: rgba(44, 62, 80, 0.5);
+  border-radius: 5rem;
+}
+.tasks-container::-webkit-scrollbar-track-piece:start {
+  background: transparent;
+}
+.tasks-container::-webkit-scrollbar-track-piece:end {
+  background: transparent;
+}
+.image {
+  max-width: 500px;
 }
 </style>
