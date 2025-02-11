@@ -330,14 +330,16 @@ const fetchData = async () => {
               class: 'text-xl',
             },
             content: {
-              class: '',
+              class: 'overflow-hidden flex justify-content-center align-items-center',
             },
           }"
           ><Image
             :src="image?.url"
-            :width="image?.width"
-            :height="image?.height"
-            class="image"
+            :pt="{
+              image: {
+                class: 'image',
+              },
+            }"
           ></Image
         ></Dialog>
         <Button
@@ -566,7 +568,12 @@ const fetchData = async () => {
 .tasks-container::-webkit-scrollbar-track-piece:end {
   background: transparent;
 }
+</style>
+<style>
 .image {
   max-width: 500px;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 </style>
