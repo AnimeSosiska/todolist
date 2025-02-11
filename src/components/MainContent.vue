@@ -24,6 +24,7 @@ interface Group {
   title: string
   taskList: Task[]
   isEditing: boolean
+  isActive: boolean
 }
 interface Task {
   id: number
@@ -126,7 +127,7 @@ const deleteGroup = (groupId: number) => {
     if (group.taskList.length > 0) {
       confirm.require({
         message: 'Все задачи будут потеряны.',
-        header: 'Вы уверены что хотите удалить список?',
+        header: 'Вы уверены, что хотите удалить список?',
         onShow: () => {
           visible.value = true
         },
@@ -302,13 +303,15 @@ const fetchData = async () => {
         class="text-4xl font-medium line-height-4 ml-8 border-none bg-white-alpha-30 border-round-sm w-6"
         @keydown.enter.exact.prevent="editGroup(activeGroupId!)"
       />
-      <div class="buttons flex mr-8 gap-2" v-if="activeGroupId !== null">
+      <div class="buttons flex mr-8 pr-2 gap-2" v-if="activeGroupId !== null">
         <Button
           v-if="activeGroupId !== null"
           @click.stop="editGroup(activeGroupId)"
           unstyled
-          label="Редактировать группу"
-          icon="pi pi-pen-to-square"
+          label="Редактировать список"
+          :icon="
+            props.groupList[activeGroupId].isEditing ? 'pi pi-check-square' : 'pi pi-pen-to-square'
+          "
           :pt="{
             root: {
               class:
@@ -464,7 +467,7 @@ const fetchData = async () => {
             v-if="item.isEditing"
             v-model="item.title"
             maxlength="250"
-            class="textarea text-base line-height-3 border-none w-full bg-white-alpha-30 border-round-sm my-2"
+            class="textarea text-base line-height-3 border-none w-full bg-white-alpha-30 text-justify border-round-sm my-2"
             @mousedown.stop="item.isSelecting = true"
             @mouseup.stop="item.isSelecting = false"
             @mouseleave.stop="item.isSelecting = false"

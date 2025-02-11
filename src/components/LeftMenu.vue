@@ -7,6 +7,7 @@ interface Group {
   title: string
   taskList: Task[]
   isEditing: boolean
+  isActive: boolean
 }
 interface Task {
   id: number
@@ -49,6 +50,7 @@ const createGroup = () => {
     title: newGroupTitle,
     taskList: [],
     isEditing: false,
+    isActive: false,
   }
   updatedGroupList.value.push(newGroup)
   emit('update-group', updatedGroupList.value)
@@ -101,8 +103,13 @@ const ripple = (e: MouseEvent) => {
         :label="item.title"
         :pt="{
           root: {
-            class:
-              'shadow-2 hover:bg-bluegray-100 transition-duration-100 ml-3 mr-2 px4 border-round border-none flex gap-2 align-items-center transition-ease-out cursor-pointer',
+            class: [
+              'shadow-2 transition-duration-100 ml-3 mr-2 px4 border-round border-none flex gap-2 align-items-center transition-ease-out cursor-pointer',
+              {
+                'bg-yellow-50 hover:bg-yellow-100': item.isActive,
+                'hover:bg-bluegray-100': !item.isActive,
+              },
+            ],
           },
           label: {
             class:

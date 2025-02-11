@@ -9,6 +9,7 @@ interface Group {
   title: string
   taskList: Task[]
   isEditing: boolean
+  isActive: boolean
 }
 
 interface Task {
@@ -30,7 +31,11 @@ if (Object.keys(groupsLocalStorage).length !== 0) {
 }
 
 const setActiveGroup = (index: number) => {
+  groupList.value.forEach((group) => {
+    group.isActive = false
+  })
   activeGroupId.value = index
+  groupList.value[index].isActive = true
 }
 
 const updateGroup = (newGroupList: Group[]) => {
@@ -43,7 +48,8 @@ const deleteGroup = (deletingGroupId: Group['id']) => {
   groupList.value = groupList.value.filter((group) => group.id !== deletingGroupId)
   localStorage.setItem('groupList', JSON.stringify(groupList.value))
   if (groupList.value.length > 0) {
-    activeGroupId.value = 0
+    setActiveGroup(0)
+    document.title = groupList.value[0].title + ' - To-Do List'
   }
 }
 </script>
