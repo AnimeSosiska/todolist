@@ -49,6 +49,8 @@ export const useGroupStore = defineStore('group', () => {
     if (groupList.value.length > 0) {
       setActiveGroup(0)
       document.title = groupList.value[0].title + ' - To-Do List'
+    } else {
+      document.title = 'To-Do List'
     }
     updateGroup()
   }
