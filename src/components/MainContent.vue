@@ -2,7 +2,7 @@
 import { ref, watch } from 'vue'
 import Textarea from 'primevue/textarea'
 import ConfirmDialog from 'primevue/confirmdialog'
-import { useConfirm } from 'primevue/useConfirm'
+import { useConfirm } from 'primevue/useconfirm'
 import Dialog from 'primevue/dialog'
 import axios from 'axios'
 import Image from 'primevue/image'
