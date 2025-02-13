@@ -1,19 +1,12 @@
 <script setup lang="ts">
 import LeftMenu from '../components/LeftMenu.vue'
 import MainContent from '../components/MainContent.vue'
-import { ref } from 'vue'
-
-const activeGroupId = ref<number | null>(null)
-
-function setActiveGroup(id: number) {
-  activeGroupId.value = id
-}
 </script>
 
 <template>
   <main>
-    <LeftMenu @select-group="setActiveGroup" />
-    <MainContent :activeGroupId="activeGroupId" />
+    <LeftMenu />
+    <MainContent />
   </main>
 </template>
 

@@ -1,63 +1,54 @@
 <script lang="ts" setup>
-import { computed, ref, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import Textarea from 'primevue/textarea'
+import ConfirmDialog from 'primevue/confirmdialog'
+import { useConfirm } from 'primevue/useConfirm'
+import Dialog from 'primevue/dialog'
+import axios from 'axios'
+import Image from 'primevue/image'
+import { useGroupStore } from '../stores/GroupStore'
+import { useTaskStore } from '../stores/TaskStore'
 
-const props = defineProps<{
-  activeGroupId: number | null
-}>()
+const confirm = useConfirm()
+const groupStore = useGroupStore()
+const taskStore = useTaskStore()
 
-interface Group {
-  id: number
-  title: string
-  taskList: Task[]
-}
-interface Task {
-  id: number
-  title: string
-  completionStatus: boolean
-  isEditing: boolean
-  dragging: boolean
-}
-const groupList = ref<Group[]>([])
-const taskList = ref<Task[]>([])
-let id: number | null = null
-
-const activeGroupTitle = computed(() => {
-  groupList.value = JSON.parse(localStorage.getItem('groupList') ?? '{}')
-
-  let group: Group | undefined
-  if (props.activeGroupId === null) {
-    if (Object.keys(groupList.value).length !== 0) {
-      group = groupList.value[0]
-      id = 0
+const visible = ref<boolean>(false)
+const image = ref<Image | null>(null)
+const visibleModal = ref<boolean>(false)
+const editableGroupTitle = ref<string>('')
+watch(
+  () => groupStore.activeGroupId,
+  (newId) => {
+    if (newId !== null && groupStore.groupList[newId]) {
+      editableGroupTitle.value = groupStore.groupList[newId].title
+    } else {
+      editableGroupTitle.value = 'Вы ещё не создали список!'
     }
-  } else {
-    group = groupList.value[props.activeGroupId]
-    id = props.activeGroupId
-  }
-  if (group && id) {
-    if (Object.keys(group.taskList).length !== 0) {
-      groupList.value[id].taskList = group.taskList
+  },
+)
+
+const confirmDeleteGroup = (groupId: number) => {
+  let group = groupStore.groupList[groupId]
+  if (group) {
+    if (group.taskList.length > 0) {
+      confirm.require({
+        message: 'Все задачи будут потеряны.',
+        header: 'Вы уверены, что хотите удалить список?',
+        onShow: () => {
+          visible.value = true
+        },
+        onHide: () => {
+          visible.value = false
+        },
+        accept: () => {
+          groupStore.deleteGroup(group.id)
+        },
+      })
+    } else {
+      groupStore.deleteGroup(group.id)
     }
   }
-  return group ? group.title : null
-})
-//Работа кнопки, создающая задачи
-const addTask = () => {
-  const newTask: Task = {
-    id: taskList.value.length,
-    title: 'Новая задача',
-    completionStatus: false,
-    isEditing: false,
-    dragging: false,
-  }
-  groupList.value[props.activeGroupId!].taskList.push(newTask)
-  localStorage.setItem('groupList', JSON.stringify(groupList.value))
-}
-
-//Кнопка, удаляющая задачу
-const deleteTask = (id: number) => {
-  taskList.value = taskList.value.filter((task) => task.id !== id)
 }
 
 //Перетаскивание задач
@@ -67,12 +58,15 @@ const cloneElement = ref<HTMLElement | null>(null)
 const cloneContainer = ref<HTMLDivElement | null>(null)
 
 const onMouseDown = (index: number, event: MouseEvent) => {
-  if (taskList.value[index].isEditing) {
+  if (
+    groupStore.groupList[groupStore.activeGroupId!].taskList[index].isEditing &&
+    !groupStore.groupList[groupStore.activeGroupId!].taskList[index].isSelecting
+  ) {
     draggingTaskIndex.value = index
     const currentTarget = event.currentTarget as HTMLElement
     offsetY.value = event.clientY - currentTarget.getBoundingClientRect().top
 
-    taskList.value[index].dragging = true
+    groupStore.groupList[groupStore.activeGroupId!].taskList[index].dragging = true
     document.body.style.cursor = 'grabbing'
 
     document.addEventListener('mousemove', onMouseMove)
@@ -96,10 +90,8 @@ const onMouseMove = (event: MouseEvent) => {
       cloneContainer.value.style.height = '100vh'
       cloneElement.value.classList.remove('task')
       cloneElement.value.classList.add('task-copy')
-      // document.body.appendChild(cloneElement.value)
       cloneContainer.value.appendChild(cloneElement.value)
     }
-
     currentElement.style.visibility = 'hidden'
 
     const rect = currentElement.getBoundingClientRect()
@@ -115,7 +107,6 @@ const onMouseMove = (event: MouseEvent) => {
         const rect = taskElement.getBoundingClientRect()
         const isAbove = event.clientY < rect.top + rect.height / 2 && event.clientY > rect.top
         const isBelow = event.clientY > rect.top + rect.height / 2 && event.clientY < rect.bottom
-
         if (isAbove && i < draggingTaskIndex.value!) {
           newIndex = i
         } else if (isBelow && i > draggingTaskIndex.value!) {
@@ -125,8 +116,11 @@ const onMouseMove = (event: MouseEvent) => {
     })
 
     if (newIndex !== draggingTaskIndex.value) {
-      const movedTask = taskList.value.splice(draggingTaskIndex.value!, 1)[0]
-      taskList.value.splice(newIndex, 0, movedTask)
+      const movedTask = groupStore.groupList[groupStore.activeGroupId!].taskList.splice(
+        draggingTaskIndex.value!,
+        1,
+      )[0]
+      groupStore.groupList[groupStore.activeGroupId!].taskList.splice(newIndex, 0, movedTask)
       draggingTaskIndex.value = newIndex
     }
   }
@@ -146,27 +140,183 @@ const onMouseUp = (event: MouseEvent) => {
       cloneContainer.value = null
     }
 
-    taskList.value.forEach((task) => {
+    groupStore.groupList[groupStore.activeGroupId!].taskList.forEach((task) => {
       task.dragging = false
     })
     document.body.style.cursor = ''
     draggingTaskIndex.value = null
     document.removeEventListener('mousemove', onMouseMove)
     document.removeEventListener('mouseup', onMouseUp)
+    groupStore.updateGroup
+  }
+}
+
+//Перенос текста
+const formattedText = (title: string) => {
+  return title.replace(/\n/g, '<br>')
+}
+
+interface Image {
+  id: string
+  url: string
+  width: number
+  height: number
+  breeds: []
+  favourite: {}
+}
+
+const fetchData = async () => {
+  image.value = null
+  try {
+    const response = await axios.get('https://api.thecatapi.com/v1/images/search')
+    const data = response.data
+
+    if (Array.isArray(data) && data.length > 0) {
+      image.value = data[0]
+      visibleModal.value = true
+    } else {
+      image.value = null
+    }
+  } catch (error) {
+    console.log('Ошибка котиков: ', error)
+    image.value = null
   }
 }
 </script>
 <template>
-  <div class="main-content w-full">
-    <div class="title-container flex w-full py-3">
-      <h1 class="text-4xl font-medium line-height-4 ml-8">
-        {{ activeGroupTitle || 'Вы ещё не создали список!' }}
+  <div class="main-content w-full h-full flex flex-column">
+    <div class="title-container flex align-items-center justify-content-between w-full py-3">
+      <h1
+        class="text-4xl font-medium line-height-4 ml-8 w-6"
+        v-if="groupStore.isActiveGroupId(false)"
+      >
+        {{ groupStore.activeGroupTitle }}
       </h1>
+      <InputText
+        v-model="groupStore.groupList[groupStore.activeGroupId!].title"
+        v-if="groupStore.isActiveGroupId(true)"
+        maxlength="20"
+        class="text-4xl font-medium line-height-4 ml-8 border-none bg-white-alpha-30 border-round-sm w-6"
+        @keydown.enter.exact.prevent="groupStore.editGroup(groupStore.activeGroupId!)"
+      />
+      <div class="buttons flex mr-8 pr-2 gap-2" v-if="groupStore.activeGroupId !== null">
+        <Button
+          v-if="groupStore.activeGroupId !== null"
+          @click.stop="groupStore.editGroup(groupStore.activeGroupId)"
+          unstyled
+          label="Редактировать список"
+          :icon="
+            groupStore.groupList[groupStore.activeGroupId].isEditing
+              ? 'pi pi-check-square'
+              : 'pi pi-pen-to-square'
+          "
+          :pt="{
+            root: {
+              class:
+                'edit-button bg-yellow-100 hover:bg-yellow-200 px-3 border-round border-none flex gap-2 align-items-center transition-ease-out transition-duration-100 cursor-pointer',
+            },
+            label: { class: 'text-lg line-height-3' },
+            icon: { class: 'text-xl' },
+          }"
+        ></Button>
+        <Dialog
+          v-model:visible="visibleModal"
+          modal
+          header="Ваш котик"
+          :pt="{
+            root: {
+              class: 'px-3 py-2 border-round-md bg-white border-1 border-solid surface-border',
+            },
+            title: {
+              class: 'text-xl',
+            },
+            content: {
+              class: 'overflow-hidden flex justify-content-center align-items-center',
+            },
+          }"
+          ><Image
+            :src="image?.url"
+            :pt="{
+              image: {
+                class: 'image',
+              },
+            }"
+          ></Image
+        ></Dialog>
+        <Button
+          unstyled
+          @click="fetchData"
+          aria-label="Посмотреть котика"
+          v-if="!groupStore.groupList[groupStore.activeGroupId!].isEditing"
+          :pt="{
+            root: {
+              class:
+                'cat-button bg-yellow-100 hover:bg-yellow-200 border-round border-none flex align-items-center transition-ease-out transition-duration-100 cursor-pointer w-max',
+            },
+            label: { class: 'max-w-0' },
+          }"
+          ><template #icon
+            ><svg
+              xmlns="http://www.w3.org/2000/svg"
+              height="24px"
+              viewBox="0 -960 960 960"
+              width="24px"
+              fill="#2c3e50"
+            >
+              <path
+                d="M180-475q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29Zm180-160q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29Zm240 0q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29Zm180 160q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29ZM266-75q-45 0-75.5-34.5T160-191q0-52 35.5-91t70.5-77q29-31 50-67.5t50-68.5q22-26 51-43t63-17q34 0 63 16t51 42q28 32 49.5 69t50.5 69q35 38 70.5 77t35.5 91q0 47-30.5 81.5T694-75q-54 0-107-9t-107-9q-54 0-107 9t-107 9Z"
+              /></svg></template
+        ></Button>
+        <ConfirmDialog id="confirm">
+          <template #container="{ message, acceptCallback, rejectCallback }">
+            <div class="flex flex-column align-items-center p-5 surface-overlay border-round-2xl">
+              <div
+                class="border-circle bg-red-600 inline-flex justify-content-center align-items-center h-6rem w-6rem -mt-8"
+              >
+                <i class="pi pi-exclamation-circle text-7xl text-white"></i>
+              </div>
+              <span class="font-bold text-2xl block mb-2 mt-4">{{ message.header }}</span>
+              <p class="mb-0">{{ message.message }}</p>
+              <div class="flex align-items-center gap-4 mt-4">
+                <Button
+                  label="Удалить"
+                  @click="acceptCallback"
+                  class="w-7rem bg-red-100 hover:bg-red-200 py-2 border-round transition-ease-out transition-duration-100"
+                ></Button>
+                <Button
+                  label="Отменить"
+                  @click="rejectCallback"
+                  class="w-7rem border-red-100 hover:border-red-200 border-solid border-2 py-2 border-round transition-ease-out transition-duration-100"
+                ></Button>
+              </div>
+            </div>
+          </template>
+        </ConfirmDialog>
+        <Button
+          unstyled
+          aria-label="Удалить группу"
+          :aria-expanded="visible"
+          :aria-controls="visible ? 'confirm' : ''"
+          icon="pi pi-trash"
+          v-if="groupStore.groupList[groupStore.activeGroupId!].isEditing"
+          @click.stop="confirmDeleteGroup(groupStore.activeGroupId!)"
+          :pt="{
+            root: {
+              class:
+                'delete-button bg-red-100 hover:bg-red-200 border-round border-none flex align-items-center transition-ease-out transition-duration-100 cursor-pointer w-max',
+            },
+            label: { class: 'max-w-0' },
+            icon: { class: 'text-xl' },
+          }"
+        >
+        </Button>
+      </div>
     </div>
-    <div class="group-content flex flex-column gap-4 w-full mt-4">
+    <div class="tasks-container flex flex-column gap-4 w-full mt-4 mb-2 overflow-y-auto">
       <Button
-        @click="addTask"
-        v-if="activeGroupTitle"
+        unstyled
+        @click="taskStore.addTask"
+        v-if="groupStore.activeGroupId !== null"
         label="Новая задача"
         icon="pi pi-plus-circle"
         :pt="{
@@ -178,20 +328,18 @@ const onMouseUp = (event: MouseEvent) => {
           icon: { class: 'text-xl' },
         }"
       ></Button>
-      <div class="task-list flex flex-column gap-4 w-full" v-if="id !== null">
+      <div class="task-list flex flex-column gap-4 w-full" v-if="groupStore.activeGroupId !== null">
         <Button
           :key="item.id"
-          v-for="(item, index) in groupList[id].taskList"
+          v-for="(item, index) in groupStore.groupList[groupStore.activeGroupId].taskList"
           @click="item.isEditing ? '' : (item.completionStatus = !item.completionStatus)"
-          @mousedown="onMouseDown(index, $event)"
-          :icon="item.completionStatus ? 'pi pi-check-circle' : 'pi pi-circle'"
           :pt="{
             root: {
               class: [
-                'button task hover:bg-bluegray-100 mx-8 px-4 border-round border-none flex gap-2 align-items-center transition-ease-out transition-duration-100',
+                'button hover:bg-bluegray-100 active:bg-bluegray-100 task mx-8 px-4 border-round border-none flex gap-2 align-items-center transition-ease-out transition-duration-100',
                 {
                   'cursor-pointer': !item.isEditing,
-                  'cursor-move': item.isEditing,
+
                   'bg-bluegray-100': item.dragging,
                 },
               ],
@@ -199,30 +347,35 @@ const onMouseUp = (event: MouseEvent) => {
           }"
         >
           <i
-            :class="item.completionStatus ? 'pi pi-check-circle' : 'pi pi-circle'"
             class="text-xl"
+            :class="[taskStore.taskIcon(item), { 'cursor-move': item.isEditing }]"
+            @mousedown="onMouseDown(index, $event)"
           ></i>
           <span
             :class="{ 'line-through': item.completionStatus }"
-            class="text-base line-height-3 text-justify"
+            class="text-base line-height-3 text-justify my-2"
             v-if="!item.isEditing"
+            v-html="formattedText(item.title)"
           >
-            {{ item.title }}</span
-          >
+          </span>
           <Textarea
             rows="1"
             cols="20"
             autoResize
             v-if="item.isEditing"
             v-model="item.title"
-            class="textarea text-base line-height-3 border-none w-full bg-white-alpha-30 border-round-sm my-2"
-            @keyup.enter.prevent="item.isEditing = false"
+            maxlength="250"
+            class="textarea text-base line-height-3 border-none w-full bg-white-alpha-30 text-justify border-round-sm my-2"
+            @mousedown.stop="item.isSelecting = true"
+            @mouseup.stop="item.isSelecting = false"
+            @mouseleave.stop="item.isSelecting = false"
+            @keydown.enter.exact.prevent="taskStore.editTask(item.id)"
           />
           <div class="edit-buttons ml-auto flex gap-2 align-content-center">
             <Button
-              :icon="item.isEditing ? 'pi pi-times' : 'pi pi-pencil'"
+              :icon="item.isEditing ? 'pi pi-check' : 'pi pi-pencil'"
               aria-label="Edit"
-              @click.stop="item.isEditing = !item.isEditing"
+              @click.stop="taskStore.editTask(item.id)"
               :pt="{
                 root: {
                   class:
@@ -235,11 +388,11 @@ const onMouseUp = (event: MouseEvent) => {
             <Button
               icon="pi pi-trash"
               aria-label="Delete"
-              @click="deleteTask(item.id)"
+              @click="taskStore.deleteTask(item.id)"
               :pt="{
                 root: {
                   class:
-                    'border-round-xl border-none h-max w-max bg-white-alpha-60 hover:bg-white transition-ease-out transition-duration-100 cursor-pointer flex align-items-center p-2',
+                    'border-round-xl border-none h-max w-max bg-white-alpha-60 hover:bg-red-200 transition-ease-out transition-duration-100 cursor-pointer flex align-items-center p-2',
                 },
                 icon: { class: 'text-xl' },
                 label: { class: 'max-w-0' },
@@ -261,8 +414,16 @@ const onMouseUp = (event: MouseEvent) => {
   min-height: 50px;
   font-family: 'Nunito', serif;
 }
-.button:hover {
-  background: rgba(224, 224, 224, 1);
+.edit-button {
+  color: #2c3e50;
+  min-height: 50px;
+  font-family: 'Nunito', serif;
+}
+.cat-button {
+  padding: 0px 14px;
+}
+.delete-button {
+  padding: 0px 16px;
 }
 .textarea {
   background: none;
@@ -287,5 +448,33 @@ const onMouseUp = (event: MouseEvent) => {
   left: 0;
   width: 100vw;
   height: 100vh;
+}
+.tooltip {
+  color: #2c3e50;
+  font-family: 'Nunito', serif;
+}
+.tasks-container {
+  scrollbar-gutter: stable;
+}
+.tasks-container::-webkit-scrollbar {
+  width: 0.5rem;
+}
+.tasks-container::-webkit-scrollbar-thumb {
+  background-color: rgba(44, 62, 80, 0.5);
+  border-radius: 5rem;
+}
+.tasks-container::-webkit-scrollbar-track-piece:start {
+  background: transparent;
+}
+.tasks-container::-webkit-scrollbar-track-piece:end {
+  background: transparent;
+}
+</style>
+<style>
+.image {
+  max-width: 500px;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 </style>
