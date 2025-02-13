@@ -1,65 +1,7 @@
 <script lang="ts" setup>
 import Logo from './icons/Logo.vue'
-import { onMounted, ref } from 'vue'
-
-interface Group {
-  id: number
-  title: string
-  taskList: Task[]
-  isEditing: boolean
-  isActive: boolean
-}
-interface Task {
-  id: number
-  title: string
-  completionStatus: boolean
-  isEditing: boolean
-  isSelecting: boolean
-  dragging: boolean
-}
-
-const props = defineProps<{
-  groupList: Group[] | []
-}>()
-
-const emit = defineEmits<{
-  (e: 'select-group', index: number): void
-  (e: 'update-group', updatedGroupList: Group[]): void
-}>()
-
-const updatedGroupList = ref<Group[]>(props.groupList)
-
-const createGroup = () => {
-  updatedGroupList.value = [...props.groupList]
-
-  const generateUniqueTitle = (baseTitle: string): string => {
-    let count = 1
-    let newTitle = baseTitle
-
-    while (updatedGroupList.value.some((group) => group.title === newTitle)) {
-      count++
-      newTitle = `${baseTitle} #${count}`
-    }
-    return newTitle
-  }
-
-  const newGroupTitle = generateUniqueTitle('Новый список')
-
-  const newGroup: Group = {
-    id: updatedGroupList.value.length,
-    title: newGroupTitle,
-    taskList: [],
-    isEditing: false,
-    isActive: false,
-  }
-  updatedGroupList.value.push(newGroup)
-  emit('update-group', updatedGroupList.value)
-  setActiveGroup(newGroup.id)
-}
-const setActiveGroup = (id: number) => {
-  document.title = updatedGroupList.value[id].title + ' - To-Do List'
-  emit('select-group', id)
-}
+import { useGroupStore } from '../stores/GroupStore'
+const groupStore = useGroupStore()
 
 const ripple = (e: MouseEvent) => {
   const target = e.target as HTMLDivElement
@@ -95,10 +37,10 @@ const ripple = (e: MouseEvent) => {
           label: { class: 'text-base line-height-3' },
           icon: { class: 'text-xl' },
         }"
-        @click="createGroup()"
+        @click="groupStore.createGroup()"
       />
       <Button
-        v-for="(item, index) in groupList"
+        v-for="(item, index) in groupStore.groupList"
         :key="item.id"
         :label="item.title"
         :pt="{
@@ -117,7 +59,7 @@ const ripple = (e: MouseEvent) => {
           },
           icon: { class: 'text-xl' },
         }"
-        @click="setActiveGroup(index)"
+        @click="groupStore.setActiveGroup(index)"
       />
     </div>
   </div>
@@ -130,6 +72,7 @@ const ripple = (e: MouseEvent) => {
 }
 .logo-container {
   display: flex;
+  min-height: max-content;
 }
 #logo {
   padding: 18px 0 18px 0;
