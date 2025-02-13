@@ -161,6 +161,8 @@ interface Image {
   url: string
   width: number
   height: number
+  breeds: []
+  favourite: {}
 }
 
 const fetchData = async () => {
