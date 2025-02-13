@@ -50,7 +50,7 @@ export const useGroupStore = defineStore('group', () => {
       setActiveGroup(0)
       document.title = groupList.value[0].title + ' - To-Do List'
     }
-    updateGroup
+    updateGroup()
   }
 
   const createGroup = () => {
@@ -75,6 +75,7 @@ export const useGroupStore = defineStore('group', () => {
     }
     groupList.value.push(newGroup)
     setActiveGroup(newGroup.id)
+    updateGroup()
   }
 
   const isActiveGroupId = (inputText: boolean) => {
@@ -97,9 +98,11 @@ export const useGroupStore = defineStore('group', () => {
       groupList.value = groupList.value.map((group, index) =>
         index === groupIndex ? updatedGroup : group,
       )
-      updateGroup
+      updateGroup()
     }
   }
+
+  if (groupList.value.length > 0) setActiveGroup(0)
 
   return {
     groupList,

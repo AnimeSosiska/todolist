@@ -34,7 +34,7 @@ export const useTaskStore = defineStore('task', () => {
         dragging: false,
       }
       groupStore.groupList[groupStore.activeGroupId].taskList.unshift(newTask)
-      groupStore.updateGroup
+      groupStore.updateGroup()
     }
   }
 
@@ -43,7 +43,7 @@ export const useTaskStore = defineStore('task', () => {
       groupStore.groupList[groupStore.activeGroupId].taskList = taskList.value.filter(
         (task) => task.id !== itemId,
       )
-      groupStore.updateGroup
+      groupStore.updateGroup()
     }
   }
 
@@ -58,7 +58,7 @@ export const useTaskStore = defineStore('task', () => {
           item.isEditing = true
         } else if (item.isEditing) {
           item.isEditing = false
-          groupStore.updateGroup
+          groupStore.updateGroup()
         }
       }
     }

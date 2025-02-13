@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, computed } from 'vue'
+import { ref, watch } from 'vue'
 import Textarea from 'primevue/textarea'
 import ConfirmDialog from 'primevue/confirmdialog'
 import { useConfirm } from 'primevue/useConfirm'
@@ -16,6 +16,17 @@ const taskStore = useTaskStore()
 const visible = ref<boolean>(false)
 const image = ref<Image | null>(null)
 const visibleModal = ref<boolean>(false)
+const editableGroupTitle = ref<string>('')
+watch(
+  () => groupStore.activeGroupId,
+  (newId) => {
+    if (newId !== null && groupStore.groupList[newId]) {
+      editableGroupTitle.value = groupStore.groupList[newId].title
+    } else {
+      editableGroupTitle.value = 'Вы ещё не создали список!'
+    }
+  },
+)
 
 const confirmDeleteGroup = (groupId: number) => {
   let group = groupStore.groupList[groupId]
@@ -180,7 +191,7 @@ const fetchData = async () => {
         {{ groupStore.activeGroupTitle }}
       </h1>
       <InputText
-        v-model="groupStore.activeGroupTitle"
+        v-model="groupStore.groupList[groupStore.activeGroupId!].title"
         v-if="groupStore.isActiveGroupId(true)"
         maxlength="20"
         class="text-4xl font-medium line-height-4 ml-8 border-none bg-white-alpha-30 border-round-sm w-6"
