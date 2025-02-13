@@ -8,7 +8,7 @@ import { createPinia } from 'pinia'
 import PrimeVue from 'primevue/config'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
-import ConfirmationService from 'primevue/ConfirmationService'
+import ConfirmationService from 'primevue/confirmationservice'
 import App from './App.vue'
 import router from './router'
 
