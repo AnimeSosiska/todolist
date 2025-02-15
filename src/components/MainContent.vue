@@ -185,7 +185,7 @@ const fetchData = async () => {
   }
 }
 
-const taskTitle = ref<string | null>('Новая задача')
+const taskTitle = ref<string | null>(null)
 const taskModal = ref<boolean>(false)
 
 const elementFocus = (el: any | null) => {
@@ -254,6 +254,12 @@ const createTask = () => {
             content: {
               class: 'overflow-hidden flex justify-content-center align-items-center',
             },
+            mask: {
+              class: 'bg-black-alpha-40',
+            },
+            transition: {
+              class: 'transition-ease-in',
+            },
           }"
           ><Image
             :src="image?.url"
@@ -288,7 +294,17 @@ const createTask = () => {
                 d="M180-475q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29Zm180-160q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29Zm240 0q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29Zm180 160q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29ZM266-75q-45 0-75.5-34.5T160-191q0-52 35.5-91t70.5-77q29-31 50-67.5t50-68.5q22-26 51-43t63-17q34 0 63 16t51 42q28 32 49.5 69t50.5 69q35 38 70.5 77t35.5 91q0 47-30.5 81.5T694-75q-54 0-107-9t-107-9q-54 0-107 9t-107 9Z"
               /></svg></template
         ></Button>
-        <ConfirmDialog id="confirm">
+        <ConfirmDialog
+          id="confirm"
+          :pt="{
+            mask: {
+              class: 'bg-black-alpha-40',
+            },
+            transition: {
+              class: 'transition-ease-in',
+            },
+          }"
+        >
           <template #container="{ message, acceptCallback, rejectCallback }">
             <div class="flex flex-column align-items-center p-5 surface-overlay border-round-2xl">
               <div
@@ -336,12 +352,12 @@ const createTask = () => {
     <Dialog
       v-model:visible="taskModal"
       modal
-      @hide="taskTitle = 'Новая задача'"
+      @hide="taskTitle = ''"
       header="Создание новой задачи"
       :pt="{
         root: {
           class:
-            'px-3 py-2 border-round-md bg-white border-1 border-solid surface-border flex gap-3 w-2',
+            'px-3 py-2 border-round-md bg-white border-1 border-solid surface-border flex gap-3 w-26rem',
         },
         header: {
           class: 'flex flex-row justify-content-between',
@@ -352,12 +368,19 @@ const createTask = () => {
         content: {
           class: 'flex flex-column',
         },
+        mask: {
+          class: 'bg-black-alpha-40',
+        },
+        transition: {
+          class: 'transition-ease-in',
+        },
       }"
     >
       <label for="taskTitleInput">Название задачи</label
       ><InputText
         type="text"
         v-model="taskTitle"
+        maxlength="250"
         :ref="
           (el) => {
             elementFocus(el)
@@ -366,13 +389,15 @@ const createTask = () => {
         id="taskTitleInput"
         aria-describedby="taskTitle-help"
         @keydown.enter.prevent="createTask()"
+        placeholder="Введите название"
+        autocomplete="off"
         :pt="{
           root: {
-            class: 'border-1 border-solid surface-border border-round-sm w-full',
+            class:
+              'placeholder nunito border-1 border-solid surface-border border-round-sm w-full p-2',
           },
         }"
       />
-      <small id="taskTitle-help">Введите название новой задачи.</small>
       <Button
         label="Создать"
         class="border-1 border-round-sm mt-1 py-1 w-full bg-green-300 hover:bg-green-200"
@@ -480,6 +505,10 @@ const createTask = () => {
 .title-container {
   border-bottom: 1px solid rgba(0, 0, 0, 25%);
 }
+.nunito {
+  color: #2c3e50;
+  font-family: 'Nunito', serif;
+}
 .button {
   color: #2c3e50;
   background: rgba(224, 224, 224, 0.6);
@@ -540,6 +569,9 @@ const createTask = () => {
 }
 .tasks-container::-webkit-scrollbar-track-piece:end {
   background: transparent;
+}
+.placeholder::placeholder {
+  color: var(--surface-400);
 }
 </style>
 <style>

@@ -7,7 +7,7 @@ import InputText from 'primevue/inputtext'
 const groupStore = useGroupStore()
 
 const groupModal = ref<boolean>(false)
-const groupTitle = ref<string | null>('Новый список')
+const groupTitle = ref<string | null>(null)
 
 const modalCreateGroupFocus = (el: any) => {
   if (el) {
@@ -47,12 +47,12 @@ const ripple = (e: MouseEvent) => {
       <Dialog
         v-model:visible="groupModal"
         modal
-        @hide="groupTitle = 'Новый список'"
+        @hide="groupTitle = ''"
         header="Создание нового списка"
         :pt="{
           root: {
             class:
-              'px-3 py-2 border-round-md bg-white border-1 border-solid surface-border flex gap-3 w-2',
+              'nunito px-3 py-2 border-round-md bg-white border-1 border-solid surface-border flex gap-3 w-26rem',
           },
           header: {
             class: 'flex flex-row justify-content-between',
@@ -63,27 +63,34 @@ const ripple = (e: MouseEvent) => {
           content: {
             class: 'flex flex-column',
           },
+          mask: {
+            class: 'bg-black-alpha-40',
+          },
+          transition: {
+            class: 'transition-ease-in',
+          },
         }"
       >
         <label for="groupTitleInput">Название списка</label
         ><InputText
           type="text"
           v-model="groupTitle"
+          maxlength="20"
           :ref="
             (el) => {
               modalCreateGroupFocus(el)
             }
           "
           id="groupTitleInput"
-          aria-describedby="groupTitle-help"
           @keydown.enter.prevent="createGroup()"
+          placeholder="Введите название"
+          autocomplete="off"
           :pt="{
             root: {
-              class: 'border-1 border-solid surface-border border-round-sm w-full',
+              class: 'placeholder border-1 border-solid surface-border border-round-sm w-full p-2',
             },
           }"
         />
-        <small id="groupTitle-help">Введите название нового списка.</small>
         <Button
           label="Создать"
           class="border-1 border-round-sm mt-1 py-1 w-full bg-green-300 hover:bg-green-200"
@@ -96,7 +103,7 @@ const ripple = (e: MouseEvent) => {
         :pt="{
           root: {
             class:
-              'shadow-2 hover:bg-bluegray-100 transition-duration-100 ml-3 mr-2 px4 border-round border-none flex gap-2 align-items-center transition-ease-out cursor-pointer',
+              'button shadow-2 hover:bg-bluegray-100 transition-duration-100 ml-3 mr-2 px4 border-round border-none flex gap-2 align-items-center transition-ease-out cursor-pointer',
           },
           label: { class: 'text-base line-height-3' },
           icon: { class: 'text-xl' },
@@ -110,7 +117,7 @@ const ripple = (e: MouseEvent) => {
         :pt="{
           root: {
             class: [
-              'shadow-2 transition-duration-100 ml-3 mr-2 px4 border-round border-none flex gap-2 align-items-center transition-ease-out cursor-pointer',
+              'button shadow-2 transition-duration-100 ml-3 mr-2 px4 border-round border-none flex gap-2 align-items-center transition-ease-out cursor-pointer',
               {
                 'bg-yellow-50 hover:bg-yellow-100': item.isActive,
                 'hover:bg-bluegray-100': !item.isActive,
@@ -161,12 +168,15 @@ const ripple = (e: MouseEvent) => {
   background: transparent;
 }
 
-Button {
+.button {
   color: #2c3e50;
   border-color: #2c3e50;
   background: #e0e0e0;
   min-height: 50px;
   font-family: 'Nunito', serif;
+}
+.placeholder::placeholder {
+  color: var(--surface-400);
 }
 </style>
 <style>
