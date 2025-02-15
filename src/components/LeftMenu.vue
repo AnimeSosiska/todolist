@@ -1,7 +1,25 @@
 <script lang="ts" setup>
 import Logo from './icons/Logo.vue'
+import { ref } from 'vue'
 import { useGroupStore } from '../stores/GroupStore'
+import Dialog from 'primevue/dialog'
+import InputText from 'primevue/inputtext'
 const groupStore = useGroupStore()
+
+const groupModal = ref<boolean>(false)
+const groupTitle = ref<string | null>('Новый список')
+
+const modalCreateGroupFocus = (el: any) => {
+  if (el) {
+    const inputElement = el.$el
+    inputElement ? inputElement.focus() : ''
+  }
+}
+
+const createGroup = () => {
+  groupModal.value = false
+  groupStore.createGroup(groupTitle.value)
+}
 
 const ripple = (e: MouseEvent) => {
   const target = e.target as HTMLDivElement
@@ -26,6 +44,52 @@ const ripple = (e: MouseEvent) => {
       <Logo id="logo" class="h-full" />
     </div>
     <div class="groups-container flex flex-column gap-4 mt-4 overflow-y-auto pb-2 pt-1 w-full">
+      <Dialog
+        v-model:visible="groupModal"
+        modal
+        @hide="groupTitle = 'Новый список'"
+        header="Создание нового списка"
+        :pt="{
+          root: {
+            class:
+              'px-3 py-2 border-round-md bg-white border-1 border-solid surface-border flex gap-3 w-2',
+          },
+          header: {
+            class: 'flex flex-row justify-content-between',
+          },
+          title: {
+            class: 'text-xl',
+          },
+          content: {
+            class: 'flex flex-column',
+          },
+        }"
+      >
+        <label for="groupTitleInput">Название списка</label
+        ><InputText
+          type="text"
+          v-model="groupTitle"
+          :ref="
+            (el) => {
+              modalCreateGroupFocus(el)
+            }
+          "
+          id="groupTitleInput"
+          aria-describedby="groupTitle-help"
+          @keydown.enter.prevent="createGroup()"
+          :pt="{
+            root: {
+              class: 'border-1 border-solid surface-border border-round-sm w-full',
+            },
+          }"
+        />
+        <small id="groupTitle-help">Введите название нового списка.</small>
+        <Button
+          label="Создать"
+          class="border-1 border-round-sm mt-1 py-1 w-full bg-green-300 hover:bg-green-200"
+          @click="createGroup()"
+        ></Button>
+      </Dialog>
       <Button
         label="Новый список"
         icon="pi pi-folder-plus"
@@ -37,7 +101,7 @@ const ripple = (e: MouseEvent) => {
           label: { class: 'text-base line-height-3' },
           icon: { class: 'text-xl' },
         }"
-        @click="groupStore.createGroup()"
+        @click="groupModal = true"
       />
       <Button
         v-for="(item, index) in groupStore.groupList"

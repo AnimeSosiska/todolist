@@ -23,11 +23,14 @@ export const useTaskStore = defineStore('task', () => {
     return null
   })
 
-  const addTask = () => {
+  const addTask = (taskTitle: string | null) => {
     if (taskList.value !== null && groupStore.activeGroupId !== null) {
       const newTask: Task = {
         id: taskList.value.length,
-        title: 'Новая задача',
+        title:
+          taskTitle && taskTitle.trim() !== '' && taskTitle !== 'Новая задача'
+            ? taskTitle
+            : 'Новая задача',
         completionStatus: false,
         isEditing: false,
         isSelecting: false,

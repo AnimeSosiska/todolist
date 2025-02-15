@@ -55,7 +55,7 @@ export const useGroupStore = defineStore('group', () => {
     updateGroup()
   }
 
-  const createGroup = () => {
+  const createGroup = (groupTitle: string | null) => {
     const generateUniqueTitle = (baseTitle: string): string => {
       let count = 1
       let newTitle = baseTitle
@@ -64,7 +64,10 @@ export const useGroupStore = defineStore('group', () => {
         count++
         newTitle = `${baseTitle} #${count}`
       }
-      return newTitle
+
+      return groupTitle && groupTitle.trim() !== '' && groupTitle !== 'Новый список'
+        ? groupTitle
+        : newTitle
     }
 
     const newGroupTitle = generateUniqueTitle('Новый список')

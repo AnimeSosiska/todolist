@@ -1,9 +1,10 @@
 <script lang="ts" setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import Textarea from 'primevue/textarea'
 import ConfirmDialog from 'primevue/confirmdialog'
 import { useConfirm } from 'primevue/useconfirm'
 import Dialog from 'primevue/dialog'
+import InputText from 'primevue/inputtext'
 import axios from 'axios'
 import Image from 'primevue/image'
 import { useGroupStore } from '../stores/GroupStore'
@@ -16,6 +17,7 @@ const taskStore = useTaskStore()
 const visible = ref<boolean>(false)
 const image = ref<Image | null>(null)
 const visibleModal = ref<boolean>(false)
+
 const editableGroupTitle = ref<string>('')
 watch(
   () => groupStore.activeGroupId,
@@ -182,6 +184,20 @@ const fetchData = async () => {
     image.value = null
   }
 }
+
+const taskTitle = ref<string | null>('Новая задача')
+const taskModal = ref<boolean>(false)
+
+const elementFocus = (el: any | null) => {
+  if (el) {
+    const HTMLElement = el.$el
+    HTMLElement ? HTMLElement.focus() : ''
+  }
+}
+const createTask = () => {
+  taskModal.value = false
+  taskStore.addTask(taskTitle.value)
+}
 </script>
 <template>
   <div class="main-content w-full h-full flex flex-column">
@@ -195,6 +211,11 @@ const fetchData = async () => {
       <InputText
         v-model="groupStore.groupList[groupStore.activeGroupId!].title"
         v-if="groupStore.isActiveGroupId(true)"
+        :ref="
+          (el) => {
+            elementFocus(el)
+          }
+        "
         maxlength="20"
         class="text-4xl font-medium line-height-4 ml-8 border-none bg-white-alpha-30 border-round-sm w-6"
         @keydown.enter.exact.prevent="groupStore.editGroup(groupStore.activeGroupId!)"
@@ -312,10 +333,56 @@ const fetchData = async () => {
         </Button>
       </div>
     </div>
+    <Dialog
+      v-model:visible="taskModal"
+      modal
+      @hide="taskTitle = 'Новая задача'"
+      header="Создание новой задачи"
+      :pt="{
+        root: {
+          class:
+            'px-3 py-2 border-round-md bg-white border-1 border-solid surface-border flex gap-3 w-2',
+        },
+        header: {
+          class: 'flex flex-row justify-content-between',
+        },
+        title: {
+          class: 'text-xl',
+        },
+        content: {
+          class: 'flex flex-column',
+        },
+      }"
+    >
+      <label for="taskTitleInput">Название задачи</label
+      ><InputText
+        type="text"
+        v-model="taskTitle"
+        :ref="
+          (el) => {
+            elementFocus(el)
+          }
+        "
+        id="taskTitleInput"
+        aria-describedby="taskTitle-help"
+        @keydown.enter.prevent="createTask()"
+        :pt="{
+          root: {
+            class: 'border-1 border-solid surface-border border-round-sm w-full',
+          },
+        }"
+      />
+      <small id="taskTitle-help">Введите название новой задачи.</small>
+      <Button
+        label="Создать"
+        class="border-1 border-round-sm mt-1 py-1 w-full bg-green-300 hover:bg-green-200"
+        @click="createTask()"
+      ></Button>
+    </Dialog>
     <div class="tasks-container flex flex-column gap-4 w-full mt-4 mb-2 overflow-y-auto">
       <Button
         unstyled
-        @click="taskStore.addTask"
+        @click="taskModal = true"
         v-if="groupStore.activeGroupId !== null"
         label="Новая задача"
         icon="pi pi-plus-circle"
@@ -364,6 +431,11 @@ const fetchData = async () => {
             autoResize
             v-if="item.isEditing"
             v-model="item.title"
+            :ref="
+              (el) => {
+                elementFocus(el)
+              }
+            "
             maxlength="250"
             class="textarea text-base line-height-3 border-none w-full bg-white-alpha-30 text-justify border-round-sm my-2"
             @mousedown.stop="item.isSelecting = true"
